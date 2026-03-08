@@ -814,6 +814,17 @@ module.exports = [
         await react(sock, m, on ? '🎙️' : '❌');
         reply(`🎙️ *Auto Recording* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
     }
+},,
+
+// ── UPDATE command
+{
+    command: 'update', category: 'other', owner: true,
+    execute: async (sock, m, { reply, isCreator }) => {
+        if (!isCreator) return reply(config.message.owner);
+        const updater = require('../library/updater');
+        await updater.doUpdate(sock, m, reply);
+    }
 },
+
 
 ];

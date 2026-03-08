@@ -14,6 +14,7 @@ const os       = require('os');
 
 const cfg   = () => require('./settings/config');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const updater = require('./library/updater');
 
 const IGNORED = ['Socket connection timeout','EKEYTYPE','item-not-found','rate-overlimit',
     'Connection Closed','Timed Out','Value not found','Bad MAC','unexpected server response',
@@ -150,6 +151,8 @@ const clientstart = async () => {
         keepAliveIntervalMs:  8000,
         defaultQueryTimeoutMs: 4000,
         retryRequestDelayMs:  30,
+        markOnlineOnConnect:  true,
+        shouldSyncHistoryMessage: () => false,
         emitOwnEvents:        true,
         fireInitQueries:      true,
         getMessage: async (key) => msgs.get(`${key.remoteJid}:${key.id}`)?.message || undefined,
@@ -211,6 +214,9 @@ const clientstart = async () => {
             sock.sendMessage(jid, {
                 text: `⚡ *LIAM LITE* is Online!\n\n👤 ${name}\n🌍 ${cfg().status?.public ? 'Public' : 'Private'}\n🖥️ ${global._hostName}\n\n> 𝐋𝐈𝐀𝐌 𝐋𝐈𝐓𝐄`
             }).catch(() => {});
+
+            // Start update checker (non-blocking)
+            try { updater.startChecker(sock); } catch(_) {}
         }
 
         if (connection === 'close') {
@@ -246,17 +252,24 @@ const clientstart = async () => {
             if (mek.key?.remoteJid && mek.key?.id)
                 msgs.set(`${mek.key.remoteJid}:${mek.key.id}`, mek);
 
-            // ── Status auto-view / react ──────────────────────────────
+            // ── Status auto-view / react — IMMEDIATE, non-blocking ─────
             if (mek.key?.remoteJid === 'status@broadcast') {
                 const f = cfg().features || {};
-                if (f.autoviewstatus) sock.readMessages([mek.key]).catch(() => {});
-                if (f.autoreactstatus) {
-                    const pool = cfg().statusReactEmojis || ['😍','🔥','💯'];
-                    sock.sendMessage('status@broadcast',
-                        { react: { text: pool[~~(Math.random()*pool.length)], key: mek.key } },
-                        { statusJidList: [mek.key.participant || mek.key.remoteJid] }
-                    ).catch(() => {});
-                }
+                const participant = mek.key.participant || mek.key.remoteJid;
+                // Fire immediately — do NOT await, do NOT delay
+                setImmediate(() => {
+                    if (f.autoviewstatus) {
+                        sock.readMessages([mek.key]).catch(() => {});
+                    }
+                    if (f.autoreactstatus && participant) {
+                        const pool = cfg().statusReactEmojis || ['😍','🔥','💯','❤️','🤩','👀'];
+                        const emoji = pool[~~(Math.random() * pool.length)];
+                        sock.sendMessage('status@broadcast',
+                            { react: { text: emoji, key: mek.key } },
+                            { statusJidList: [participant] }
+                        ).catch(() => {});
+                    }
+                });
                 if (f.autosavestatus) {
                     const mime = mek.message?.imageMessage?.mimetype || mek.message?.videoMessage?.mimetype || '';
                     if (mime) {
@@ -375,6 +388,20 @@ const clientstart = async () => {
         const f = cfg().features || {};
         if (f.alwaysonline) sock.sendPresenceUpdate('available').catch(() => {});
     }, 12000);
+
+    // ── Contacts update — subscribe to presence for all known contacts ──
+    sock.ev.on('contacts.update', updates => {
+        for (const contact of updates) {
+            if (contact?.id) {
+                sock.presenceSubscribe(contact.id).catch(() => {});
+            }
+        }
+    });
+
+    // ── Presence update — track online status ──
+    sock.ev.on('presence.update', ({ id, presences }) => {
+        // Available for future presence tracking
+    });
 
     sock.public = cfg().status?.public ?? true;
 
