@@ -1,5 +1,5 @@
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  ⚡  LIAM LITE — message.js                                            ║
+// ║  ⚡  LIAM LITE — message.js  (fancy + classic menus only)              ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 'use strict';
 
@@ -20,27 +20,22 @@ const loadUtils = async () => {
 const sig = () => '> 👁️ 𝐋𝐈𝐀𝐌 𝐋𝐈𝐓𝐄';
 let BOT_PAUSED = false;
 
-// Bold Unicode map
-const boldUni = str => {
-    const m = {A:'𝗔',B:'𝗕',C:'𝗖',D:'𝗗',E:'𝗘',F:'𝗙',G:'𝗚',H:'𝗛',I:'𝗜',J:'𝗝',K:'𝗞',L:'𝗟',M:'𝗠',N:'𝗡',O:'𝗢',P:'𝗣',Q:'𝗤',R:'𝗥',S:'𝗦',T:'𝗧',U:'𝗨',V:'𝗩',W:'𝗪',X:'𝗫',Y:'𝗬',Z:'𝗭',a:'𝗮',b:'𝗯',c:'𝗰',d:'𝗱',e:'𝗲',f:'𝗳',g:'𝗴',h:'𝗵',i:'𝗶',j:'𝗷',k:'𝗸',l:'𝗹',m:'𝗺',n:'𝗻',o:'𝗼',p:'𝗽',q:'𝗾',r:'𝗿',s:'𝘀',t:'𝘁',u:'𝘂',v:'𝘃',w:'𝘄',x:'𝘅',y:'𝘆',z:'𝘇','0':'𝟬','1':'𝟭','2':'𝟮','3':'𝟯','4':'𝟰','5':'𝟱','6':'𝟲','7':'𝟳','8':'𝟴','9':'𝟵',' ':' '};
-    return str.split('').map(c => m[c] || c).join('');
-};
+// ── Tiny bold-unicode map ──────────────────────────────────────────────────
+const B = s => s.split('').map(c => ({'A':'𝗔','B':'𝗕','C':'𝗖','D':'𝗗','E':'𝗘','F':'𝗙','G':'𝗚','H':'𝗛','I':'𝗜','J':'𝗝','K':'𝗞','L':'𝗟','M':'𝗠','N':'𝗡','O':'𝗢','P':'𝗣','Q':'𝗤','R':'𝗥','S':'𝗦','T':'𝗧','U':'𝗨','V':'𝗩','W':'𝗪','X':'𝗫','Y':'𝗬','Z':'𝗭','a':'𝗮','b':'𝗯','c':'𝗰','d':'𝗱','e':'𝗲','f':'𝗳','g':'𝗴','h':'𝗵','i':'𝗶','j':'𝗷','k':'𝗸','l':'𝗹','m':'𝗺','n':'𝗻','o':'𝗼','p':'𝗽','q':'𝗾','r':'𝗿','s':'𝘀','t':'𝘁','u':'𝘂','v':'𝘃','w':'𝘄','x':'𝘅','y':'𝘆','z':'𝘇','0':'𝟬','1':'𝟭','2':'𝟮','3':'𝟯','4':'𝟰','5':'𝟱','6':'𝟲','7':'𝟳','8':'𝟴','9':'𝟵',' ':' '}[c]||c)).join('');
 
-const getGreeting = () => {
+const greeting = () => {
     const h = new Date().getHours();
-    if (h < 5)  return boldUni('Good Night')    + ' 🌙';
-    if (h < 12) return boldUni('Good Morning')  + ' 🌅';
-    if (h < 17) return boldUni('Good Afternoon')+ ' ☀️';
-    if (h < 21) return boldUni('Good Evening')  + ' 🌇';
-    return boldUni('Good Night') + ' 🌙';
+    if (h < 5)  return B('Good Night')    + ' 🌙';
+    if (h < 12) return B('Good Morning')  + ' 🌅';
+    if (h < 17) return B('Good Afternoon')+ ' ☀️';
+    if (h < 21) return B('Good Evening')  + ' 🌇';
+    return B('Good Night') + ' 🌙';
 };
 
 const ramBar = () => {
-    const used  = process.memoryUsage().heapUsed;
-    const total = os.totalmem();
-    const pct   = Math.min(100, Math.round((used / total) * 100));
-    const filled = Math.round(pct / 10);
-    return '■'.repeat(filled) + '□'.repeat(10 - filled) + ' ' + pct + '%';
+    const pct = Math.min(100, Math.round(process.memoryUsage().heapUsed / os.totalmem() * 100));
+    const f   = Math.round(pct / 25); // 4-block bar
+    return '■'.repeat(f) + '□'.repeat(4 - f) + ' ' + pct + '%';
 };
 
 // ── Plugin Loader ──────────────────────────────────────────────────────────
@@ -49,19 +44,20 @@ class PluginLoader {
         this.plugins    = new Map();
         this.categories = new Map();
         this.dir        = path.join(__dirname, 'plugins');
+        // Category definitions — bold label for fancy, short label for classic
         this.catDef = [
-            { key:'ai',       label:'AI',       bold:boldUni('AI CMDS'),       emoji:'🤖' },
-            { key:'download', label:'Download',  bold:boldUni('DOWNLOAD CMDS'), emoji:'⬇️' },
-            { key:'fun',      label:'Fun',       bold:boldUni('FUN CMDS'),      emoji:'😂' },
-            { key:'group',    label:'Group',     bold:boldUni('GROUP CMDS'),    emoji:'👥' },
-            { key:'image',    label:'Image',     bold:boldUni('IMAGE CMDS'),    emoji:'🌄' },
-            { key:'reaction', label:'Reaction',  bold:boldUni('REACTION CMDS'), emoji:'😍' },
-            { key:'search',   label:'Search',    bold:boldUni('SEARCH CMDS'),   emoji:'🔍' },
-            { key:'settings', label:'Settings',  bold:boldUni('SETTINGS CMDS'), emoji:'⚙️' },
-            { key:'tools',    label:'Tools',     bold:boldUni('TOOLS CMDS'),    emoji:'🛠️' },
-            { key:'video',    label:'Video',     bold:boldUni('VIDEO CMDS'),    emoji:'🎬' },
-            { key:'other',    label:'Other',     bold:boldUni('OTHER CMDS'),    emoji:'📦' },
-            { key:'general',  label:'General',   bold:boldUni('GENERAL CMDS'),  emoji:'✨' },
+            { key:'ai',       bold:B('AI CMDS'),       emoji:'🤖', label:'AI',        icon:'✦' },
+            { key:'download', bold:B('DOWNLOAD CMDS'), emoji:'⬇️', label:'Download',  icon:'✦' },
+            { key:'fun',      bold:B('FUN CMDS'),      emoji:'😂', label:'Fun',        icon:'❃' },
+            { key:'group',    bold:B('GROUP CMDS'),    emoji:'👥', label:'Group',      icon:'✦' },
+            { key:'image',    bold:B('IMAGE CMDS'),    emoji:'🌄', label:'Image',      icon:'❃' },
+            { key:'reaction', bold:B('REACTION CMDS'), emoji:'😍', label:'Reaction',   icon:'✦' },
+            { key:'search',   bold:B('SEARCH CMDS'),   emoji:'🔍', label:'Search',     icon:'❃' },
+            { key:'settings', bold:B('SETTINGS CMDS'), emoji:'⚙️', label:'Settings',  icon:'✦' },
+            { key:'tools',    bold:B('TOOLS CMDS'),    emoji:'🛠️', label:'Tools',     icon:'❃' },
+            { key:'video',    bold:B('VIDEO CMDS'),    emoji:'🎬', label:'Video',      icon:'✦' },
+            { key:'other',    bold:B('OTHER CMDS'),    emoji:'📦', label:'Other',      icon:'❃' },
+            { key:'general',  bold:B('GENERAL CMDS'),  emoji:'✨', label:'General',   icon:'✦' },
         ];
         this.catDef.forEach(c => this.categories.set(c.key, []));
         this.load();
@@ -86,12 +82,12 @@ class PluginLoader {
         }
         let total = 0;
         console.log('');
-        console.log(chalk.hex('#00d4ff').bold('  ┌─ ⚡ LIAM LITE COMMANDS ─────────────'));
+        console.log(chalk.hex('#00d4ff').bold('  ┌─ ⚡ LIAM LITE ──────────────────'));
         for (const c of this.catDef) {
             const n = (this.categories.get(c.key) || []).length;
-            if (n) { console.log(chalk.hex('#a29bfe')(`  │  ${c.emoji} ${c.label.padEnd(10)} `) + chalk.white(String(n))); total += n; }
+            if (n) { console.log(chalk.hex('#a29bfe')(`  │  ${c.emoji} ${(c.label).padEnd(10)} `) + chalk.white(n)); total += n; }
         }
-        console.log(chalk.hex('#00b894').bold(`  └─ ✔ ${total} commands\n`));
+        console.log(chalk.hex('#00b894').bold(`  └─ ✔ ${total} cmds\n`));
     }
 
     async run(cmd, sock, m, ctx) {
@@ -110,62 +106,66 @@ class PluginLoader {
     reload()     { this.load(); }
     getCmds(key) { return (this.categories.get(key) || []).sort(); }
 
-    // ── FANCY MENU ───────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════
+    // FANCY MENU — exact format specified
+    // ════════════════════════════════════════════════════════════════════
     menuFancy(prefix, pushname, sock, ping) {
-        const BL   = boldUni('LIAM  LITE');
-        const BN   = boldUni((pushname || 'User').slice(0,18));
+        const name = (pushname || 'User').slice(0, 20);
         const lines = [];
 
-        lines.push(`${boldUni('Hey there')} 😁, ${getGreeting()}`);
-        lines.push('');
-        lines.push(`╔══════〚 ⚡ ${BL} 〛══════╗`);
-        lines.push(`║✫╭─╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍`);
-        lines.push(`║✫┃ ${boldUni('User')} : ${BN}`);
-        lines.push(`║✫┃ ${boldUni('Prefix')} : ${boldUni(prefix)}`);
-        lines.push(`║✫┃ ${boldUni('Mode')} : ${boldUni(sock.public ? 'Public' : 'Private')}`);
-        lines.push(`║✫┃ ${boldUni('Tcmds')} : ${boldUni(this.count() + '+')}`);
-        lines.push(`║✫┃ ${boldUni('Speed')} : ${boldUni(ping + 'ms')}`);
-        lines.push(`║✫┃ ${boldUni('RAM Usage')} : ${ramBar()}`);
-        lines.push(`║✫┃═════════════════════`);
-        lines.push(`║✫┃ █■█■█■█■█■█■█■█■█■█`);
-        lines.push(`║✫┃═════════════════════`);
-        lines.push(`╚════════════════════════╝`);
+        // Greeting
+        lines.push(`${B('Hey there')} 😁, ${greeting()}`);
         lines.push('');
 
-        const BT = '╭══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╮';
-        const BB = '╰══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╯';
+        // Header box — compact
+        lines.push(`╔═══〚 ⚡ ${B('LIAM  LITE')} ⚡〚════╗`);
+        lines.push(`║✫╭─╍╍╍╍╍╍╍╍╍╍╍`);
+        lines.push(`║✫┃ ${B('User')} : ${B(name)}`);
+        lines.push(`║✫┃ ${B('Prefix')} : ${B(prefix)}`);
+        lines.push(`║✫┃ ${B('Mode')} : ${B(sock.public ? 'Public' : 'Private')}`);
+        lines.push(`║✫┃ ${B('Tcmds')} : ${B(this.count() + '+')}`);
+        lines.push(`║✫┃ ${B('Speed')} : ${B(ping + 'ms')}`);
+        lines.push(`║✫┃ ${B('RAM Usage')} : ${ramBar()}`);
+        lines.push(`║✫┃═════════════`);
+        lines.push(`║✫┃ █■█■█■█■█■█■█`);
+        lines.push(`║✫┃══════════════`);
+        lines.push(`╚════════════════╝`);
+        lines.push('');
 
+        // Categories
         for (const c of this.catDef) {
             const cmds = this.getCmds(c.key);
             if (!cmds.length) continue;
             lines.push(`> ${c.bold}`);
-            lines.push(BT);
-            cmds.forEach(cmd => lines.push(`┃✦│ ${prefix}${cmd}`));
-            lines.push(BB);
+            lines.push(`╭══⚊⚊⚊⚊⚊⚊══╮`);
+            cmds.forEach(cmd => lines.push(`┃${c.icon}│ ${prefix}${cmd}`));
+            lines.push(`╰══⚊⚊⚊⚊⚊⚊══╯`);
             lines.push('');
         }
 
         return lines.join('\n');
     }
 
-    // ── CLASSIC MENU ─────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════
+    // CLASSIC MENU — exact compact format specified
+    // ════════════════════════════════════════════════════════════════════
     menuClassic(prefix) {
         const lines = [];
-        lines.push(`╔══════════════════════╗`);
-        lines.push(`║ ⚡ *LIAM LITE*       ║`);
-        lines.push(`╚══════════════════════╝`);
+
+        lines.push(`╔════════════╗`);
+        lines.push(`║ ⚡ *LIAM LITE*     ║`);
+        lines.push(`╚════════════╝`);
         lines.push('');
 
         for (const c of this.catDef) {
             const cmds = this.getCmds(c.key);
             if (!cmds.length) continue;
-            const label  = `${c.emoji} ${c.label}`;
-            const width  = 22;
-            const pad    = Math.max(1, Math.floor((width - label.length) / 2));
-            const dashes = '─'.repeat(pad);
-            lines.push(`╭${dashes}${label}${dashes}╮`);
+            const lbl   = `${c.emoji} ${c.label}`;
+            const inner = lbl.length + 2;
+            const dash  = '─'.repeat(Math.max(2, Math.floor((inner) / 2)));
+            lines.push(`╭${dash}${lbl}${dash}╮`);
             cmds.forEach(cmd => lines.push(`│ ${prefix}${cmd}`));
-            lines.push(`╰${'─'.repeat(width)}╯`);
+            lines.push(`╰${'─'.repeat(inner + dash.length * 2 - 2)}╯`);
             lines.push('');
         }
 
@@ -192,11 +192,11 @@ const chatbotReply = async (jid, userText) => {
     return '😅 Glitch! Try again.';
 };
 
-// ── Log ────────────────────────────────────────────────────────────────────
+// ── Console log ────────────────────────────────────────────────────────────
 const logMsg = (pushname, senderNum, isGroup, body) => {
-    const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-    const loc  = isGroup ? chalk.hex('#a29bfe')('[GRP]') : chalk.hex('#fd79a8')('[DM]');
-    console.log(chalk.hex('#00d4ff')(`  [${time}] `) + chalk.hex('#fdcb6e')(pushname.slice(0,12)) + chalk.hex('#888')(` +${senderNum} `) + loc + ' ' + chalk.white((body||'').slice(0,55)));
+    const t   = new Date().toLocaleTimeString('en-US', { hour12: false });
+    const loc = isGroup ? chalk.hex('#a29bfe')('[GRP]') : chalk.hex('#fd79a8')('[DM]');
+    console.log(chalk.hex('#00d4ff')(`  [${t}] `) + chalk.hex('#fdcb6e')(pushname.slice(0,12)) + chalk.hex('#888')(` +${senderNum} `) + loc + ' ' + chalk.white((body||'').slice(0,55)));
 };
 
 // ── Main Handler ───────────────────────────────────────────────────────────
@@ -266,7 +266,7 @@ module.exports = async (sock, m, chatUpdate) => {
             isCreator, isSudo, prefix, reply, config, sender, pushname, senderNum, m,
         };
 
-        // Auto-features
+        // ── Auto-features ────────────────────────────────────────────
         const feat = config.features || {};
         if (feat.autoread   && !m.key.fromMe) sock.readMessages([m.key]).catch(() => {});
         if (feat.autotyping && !m.key.fromMe) sock.sendPresenceUpdate('composing', m.chat).catch(() => {});
@@ -281,7 +281,7 @@ module.exports = async (sock, m, chatUpdate) => {
 
         // "bot" keyword — groups only
         if (!m.key.fromMe && !isCmd && m.isGroup && /\bbot\b/i.test(body)) {
-            await reply(`⚡ *LIAM LITE*\n\nHey ${pushname}! 👋\n\n🔗 *Session:* ${config.pairingSite}\n📦 *Source:* ${config.github}\n\n_Type *${prefix}menu* for commands_\n\n${sig()}`);
+            await reply(`⚡ *LIAM LITE*\nHey ${pushname}! 👋\n_${prefix}menu for commands_\n\n${sig()}`);
             return;
         }
 
@@ -289,9 +289,9 @@ module.exports = async (sock, m, chatUpdate) => {
         if (feat.chatbot && !m.key.fromMe && !isCmd && body.trim().length > 1) {
             try {
                 sock.sendPresenceUpdate('composing', m.chat).catch(() => {});
-                const botReply = await chatbotReply(m.chat, body.trim());
+                const r = await chatbotReply(m.chat, body.trim());
                 sock.sendPresenceUpdate('paused', m.chat).catch(() => {});
-                return await reply(botReply);
+                return await reply(r);
             } catch(_) { return await reply('😅 Hiccup!'); }
         }
 
@@ -310,11 +310,15 @@ module.exports = async (sock, m, chatUpdate) => {
         }
 
         // Built-ins
-        if (command === 'kill')    { if (!isCreator) return reply(config.message.owner); BOT_PAUSED = true;  return reply(`🔴 *Paused*\n\n${sig()}`); }
-        if (command === 'wake')    { if (!isCreator) return reply(config.message.owner); BOT_PAUSED = false; return reply(`🟢 *Active*\n\n${sig()}`); }
-        if (command === 'classic') { config.menuStyle = 'classic'; return reply(`✅ Style → Classic\n\n${sig()}`); }
-        if (command === 'fancy')   { config.menuStyle = 'fancy';   return reply(`✅ Style → Fancy\n\n${sig()}`); }
-        if (command === 'reload')  { if (!isCreator) return reply(config.message.owner); PL.reload(); return reply(`✅ Reloaded — ${PL.count()} cmds\n\n${sig()}`); }
+        if (command === 'kill')    { if (!isCreator) return reply(config.message.owner); BOT_PAUSED = true;  return reply(`🔴 *Paused*\n${sig()}`); }
+        if (command === 'wake')    { if (!isCreator) return reply(config.message.owner); BOT_PAUSED = false; return reply(`🟢 *Active*\n${sig()}`); }
+        if (command === 'classic') { config.menuStyle = 'classic'; return reply(`✅ Style → Classic\n${sig()}`); }
+        if (command === 'fancy')   { config.menuStyle = 'fancy';   return reply(`✅ Style → Fancy\n${sig()}`); }
+        if (command === 'reload')  {
+            if (!isCreator) return reply(config.message.owner);
+            PL.reload();
+            return reply(`✅ Reloaded — ${PL.count()} cmds\n${sig()}`);
+        }
 
     } catch (e) { console.log(chalk.red('[MSG ERR] ' + (e.message || e))); }
 };

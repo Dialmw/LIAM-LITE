@@ -1,6 +1,5 @@
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║  LIAM LITE — Auto Updater                                       ║
-// ║  Checks GitHub, auto-pulls, notifies owner                     ║
+// ║  LIAM LITE — Auto Updater (stable, never kills server)          ║
 // ╚══════════════════════════════════════════════════════════════════╝
 'use strict';
 
@@ -11,199 +10,268 @@ const { exec, execSync } = require('child_process');
 const { promisify } = require('util');
 const execP  = promisify(exec);
 
-const ROOT        = path.join(__dirname, '..');
-const VERSION_FILE = path.join(ROOT, '.liam_version');
-const REPO_API    = 'https://api.github.com/repos/Dialmw/LIAM-LITE/commits/main';
-const REPO_ZIP    = 'https://github.com/Dialmw/LIAM-LITE/archive/refs/heads/main.zip';
-const REPO_RAW    = 'https://raw.githubusercontent.com/Dialmw/LIAM-LITE/main';
-const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // every 4 hours
-const sig = () => '> 👁️ 𝐋𝐈𝐀𝐌 𝐋𝐈𝐓𝐄';
+const ROOT          = path.join(__dirname, '..');
+const VERSION_FILE  = path.join(ROOT, '.liam_version');
+const REPO_API      = 'https://api.github.com/repos/Dialmw/LIAM-LITE/commits/main';
+const REPO_ZIP      = 'https://github.com/Dialmw/LIAM-LITE/archive/refs/heads/main.zip';
+const CHECK_MS      = 4 * 60 * 60 * 1000;   // 4 hours
+const sig           = () => '> 👁️ 𝐋𝐈𝐀𝐌 𝐋𝐈𝐓𝐄';
 
 // ── Helpers ────────────────────────────────────────────────────────
-const isGit = () => { try { execSync('git -C "' + ROOT + '" status --short', {stdio:'ignore'}); return true; } catch { return false; } };
+const isGit = () => {
+    try { execSync('git -C "' + ROOT + '" rev-parse HEAD', { stdio:'ignore' }); return true; }
+    catch { return false; }
+};
+
+const isPm2 = () => {
+    try { execSync('pm2 -v', { stdio:'ignore' }); return true; }
+    catch { return false; }
+};
+
+const isNodemon = () => !!process.env.NODEMON || !!process.env.NODE_APP_INSTANCE;
 
 const getLocalSha = () => {
     try {
-        if (fs.existsSync(VERSION_FILE)) return fs.readFileSync(VERSION_FILE, 'utf8').trim();
-        if (isGit()) return execSync('git -C "' + ROOT + '" rev-parse HEAD', {encoding:'utf8'}).trim().slice(0,7);
+        if (fs.existsSync(VERSION_FILE)) return fs.readFileSync(VERSION_FILE, 'utf8').trim().slice(0,7);
+        if (isGit()) return execSync('git -C "' + ROOT + '" rev-parse HEAD', { encoding:'utf8' }).trim().slice(0,7);
     } catch(_) {}
     return null;
 };
 
-const setLocalSha = sha => { try { fs.writeFileSync(VERSION_FILE, sha); } catch(_) {} };
+const setLocalSha = sha => {
+    try { fs.writeFileSync(VERSION_FILE, sha.slice(0,7)); } catch(_) {}
+};
 
 const getRemoteSha = async () => {
     const { data } = await axios.get(REPO_API, {
-        timeout: 12000,
+        timeout: 15000,
         headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'LIAM-LITE-Bot' }
     });
-    return { sha: data.sha.slice(0,7), fullSha: data.sha, msg: data.commit?.message?.split('\n')[0] || '', date: data.commit?.author?.date || '' };
+    return {
+        sha:     data.sha.slice(0,7),
+        fullSha: data.sha,
+        msg:     (data.commit?.message || '').split('\n')[0].slice(0,80),
+        date:    data.commit?.author?.date || ''
+    };
 };
 
-// ── Auto-pull via git ───────────────────────────────────────────────
+// ── Git pull ───────────────────────────────────────────────────────
 const gitPull = async () => {
-    const { stdout, stderr } = await execP('git -C "' + ROOT + '" pull --rebase origin main 2>&1');
-    return (stdout + stderr).trim();
+    const { stdout, stderr } = await execP(`git -C "${ROOT}" pull --rebase origin main 2>&1`);
+    return (stdout + stderr).trim().slice(0, 300);
 };
 
-// ── Download latest zip + hot-swap files (non-git deploy) ──────────
+// ── ZIP download + hot-swap (for non-git deploys: Render, Heroku) ──
 const zipUpdate = async () => {
-    const os   = require('os');
-    const tmpZ = path.join(os.tmpdir(), 'liam_lite_update.zip');
-    const tmpD = path.join(os.tmpdir(), 'liam_lite_update_extract');
+    const os_  = require('os');
+    const tmpZ = path.join(os_.tmpdir(), 'liam_lite_upd.zip');
+    const tmpD = path.join(os_.tmpdir(), 'liam_lite_upd_extract');
 
-    // Download zip
-    const { data } = await axios.get(REPO_ZIP, { responseType: 'arraybuffer', timeout: 60000, headers: {'User-Agent':'LIAM-LITE-Bot'} });
+    const { data } = await axios.get(REPO_ZIP, {
+        responseType: 'arraybuffer',
+        timeout: 90000,
+        headers: { 'User-Agent': 'LIAM-LITE-Bot' }
+    });
     fs.writeFileSync(tmpZ, Buffer.from(data));
 
-    // Extract with unzip
+    if (fs.existsSync(tmpD)) await execP(`rm -rf "${tmpD}"`).catch(() => {});
     fs.mkdirSync(tmpD, { recursive: true });
     await execP(`unzip -o "${tmpZ}" -d "${tmpD}" 2>&1`);
 
-    // Find extracted folder
-    const extracted = fs.readdirSync(tmpD).find(d => d.startsWith('LIAM-LITE'));
-    if (!extracted) throw new Error('Could not find extracted folder');
+    const extracted = fs.readdirSync(tmpD).find(d => /LIAM.LITE/i.test(d));
+    if (!extracted) throw new Error('Extracted folder not found');
     const srcDir = path.join(tmpD, extracted);
 
-    // Files to update (skip sessions/ settings/ .liam_version README.md)
-    const SKIP = new Set(['sessions', 'settings', '.liam_version', 'README.md', 'PANEL_SETUP.md']);
+    // Only overwrite code files — NEVER touch sessions/ or settings/
+    const SKIP = new Set(['sessions', 'settings', '.liam_version', 'README.md', 'PANEL_SETUP.md', '.env']);
+
     const copyDir = (src, dst) => {
-        if (!fs.existsSync(dst)) fs.mkdirSync(dst, { recursive: true });
+        fs.mkdirSync(dst, { recursive: true });
         for (const item of fs.readdirSync(src)) {
             if (SKIP.has(item)) continue;
             const s = path.join(src, item), d = path.join(dst, item);
-            if (fs.statSync(s).isDirectory()) copyDir(s, d);
-            else fs.copyFileSync(s, d);
+            fs.statSync(s).isDirectory() ? copyDir(s, d) : fs.copyFileSync(s, d);
         }
     };
     copyDir(srcDir, ROOT);
 
     // Cleanup
-    try { fs.unlinkSync(tmpZ); } catch(_) {}
-    try { await execP(`rm -rf "${tmpD}"`); } catch(_) {}
-    return 'ZIP update applied';
+    await execP(`rm -rf "${tmpD}" "${tmpZ}"`).catch(() => {});
+    return 'ZIP swapped successfully';
 };
 
-// ── npm install ─────────────────────────────────────────────────────
+// ── npm install ────────────────────────────────────────────────────
 const npmInstall = async () => {
-    await execP('npm install --prefix "' + ROOT + '" 2>&1');
+    const { stdout } = await execP(`npm install --prefix "${ROOT}" --no-audit --no-fund 2>&1`);
+    return stdout.slice(0, 100);
 };
 
-// ── Check & notify ──────────────────────────────────────────────────
-let _lastCheckSha = null;
-let _notifyCooldown = 0;
+// ── Graceful restart — keeps server UP until manager relaunches ────
+// Strategy:
+//  1. If pm2 detected → pm2 restart app name
+//  2. If nodemon → send SIGUSR2 (nodemon restart signal)
+//  3. Otherwise → tell user to restart manually (DO NOT exit)
+const gracefulRestart = async (sock, reply, appName) => {
+    const ownerJid = (sock?.user?.id || '').split(':')[0].split('@')[0] + '@s.whatsapp.net';
+
+    if (isPm2()) {
+        try {
+            // pm2 restart — spawns new process before killing old one
+            await execP(`pm2 restart "${appName || 'LIAM-LITE'}" 2>&1`);
+            // This message sends before the restart completes
+            await reply(`✅ *Update applied!*\n🔄 pm2 restarting...\n\n${sig()}`);
+            return;
+        } catch(e) {
+            // pm2 restart failed, try graceful exit (pm2 will relaunch)
+            await reply(`✅ *Update applied!*\n🔄 Restarting via pm2...\n\n${sig()}`);
+            setTimeout(() => process.exit(0), 1500);
+            return;
+        }
+    }
+
+    if (isNodemon()) {
+        await reply(`✅ *Update applied!*\n🔄 Nodemon restarting...\n\n${sig()}`);
+        setTimeout(() => process.kill(process.pid, 'SIGUSR2'), 800);
+        return;
+    }
+
+    // Render / Heroku / bare VPS without pm2
+    // DO NOT exit — just notify user to restart
+    await reply(
+        `✅ *Update files applied!*\n\n` +
+        `⚠️ *Restart required to activate.*\n\n` +
+        `*How to restart:*\n` +
+        `• pm2: \`pm2 restart LIAM-LITE\`\n` +
+        `• Termux: Ctrl+C then \`npm start\`\n` +
+        `• Render/Heroku: Manual redeploy or set auto-restart\n\n` +
+        `_Bot continues running on old version until restart._\n\n${sig()}`
+    );
+    // Don't exit — keep serving
+};
+
+// ── Periodic check state ───────────────────────────────────────────
+let _lastNotifiedSha  = null;
+let _notifyTime       = 0;
+let _failCount        = 0;
+const MAX_FAIL_NOTIFY = 3;   // warn user after 3 consecutive check failures
 
 const checkAndNotify = async (sock) => {
+    const ownerJid = (sock?.user?.id || '').split(':')[0].split('@')[0] + '@s.whatsapp.net';
+    if (!ownerJid || ownerJid === '@s.whatsapp.net') return;
+
     try {
-        const ownerJid = (sock?.user?.id || '').split(':')[0].split('@')[0] + '@s.whatsapp.net';
-        if (!ownerJid || ownerJid === '@s.whatsapp.net') return;
+        const remote   = await getRemoteSha();
+        const localSha = getLocalSha();
+        _failCount = 0; // reset on success
 
-        const remote    = await getRemoteSha();
-        const localSha  = getLocalSha();
-
-        // Up to date
+        // Same version — nothing to do
         if (localSha && (localSha === remote.sha || remote.fullSha.startsWith(localSha))) return;
 
-        // Already notified about this SHA recently (avoid spam)
-        if (_lastCheckSha === remote.sha && Date.now() - _notifyCooldown < 60 * 60 * 1000) return;
-        _lastCheckSha = remote.sha;
-        _notifyCooldown = Date.now();
+        // Already sent this notification recently (1h cooldown)
+        if (_lastNotifiedSha === remote.sha && Date.now() - _notifyTime < 60 * 60 * 1000) return;
+        _lastNotifiedSha = remote.sha;
+        _notifyTime      = Date.now();
 
-        const msg =
-            `🔔 *LIAM LITE Update Available!*\n\n` +
-            `📦 *New:* \`${remote.sha}\`\n` +
-            `📌 *Current:* \`${localSha || 'unknown'}\`\n` +
-            `📝 *Changes:* ${remote.msg}\n\n` +
-            `Type *.update* to auto-update now, or update manually:\n` +
-            `\`git pull origin main && npm install\`\n\n${sig()}`;
+        sock.sendMessage(ownerJid, {
+            text:
+                `🔔 *LIAM LITE Update Available!*\n\n` +
+                `📦 New:     \`${remote.sha}\`\n` +
+                `📌 Current: \`${localSha || '?'}\`\n` +
+                `📝 ${remote.msg}\n\n` +
+                `Type *.update* to auto-update now\n` +
+                `or: \`git pull origin main && npm install\`\n\n${sig()}`
+        }).catch(() => {});
 
-        sock.sendMessage(ownerJid, { text: msg }).catch(() => {});
-        console.log(`[UPDATER] Update available: ${remote.sha}`);
+        console.log(`[UPDATER] ⬆ Update ${remote.sha} available`);
     } catch(e) {
-        console.log(`[UPDATER] Check failed: ${e.message}`);
+        _failCount++;
+        console.log(`[UPDATER] Check failed (${_failCount}): ${e.message}`);
+
+        // After repeated failures, nudge owner to check manually
+        if (_failCount >= MAX_FAIL_NOTIFY) {
+            _failCount = 0;
+            sock.sendMessage(ownerJid, {
+                text:
+                    `⚠️ *LIAM LITE — Update check failed ${MAX_FAIL_NOTIFY}x*\n\n` +
+                    `Could not reach GitHub. Please manually check for updates:\n` +
+                    `\`git pull origin main && npm install\`\n\n` +
+                    `_Check your internet connection or GitHub status._\n\n${sig()}`
+            }).catch(() => {});
+        }
     }
 };
 
-// ── Start periodic checker ──────────────────────────────────────────
+// ── Start background checker ───────────────────────────────────────
 const startChecker = (sock) => {
-    // Check after 30s on startup
-    setTimeout(() => checkAndNotify(sock), 30000);
-    // Then every 4 hours
-    setInterval(() => checkAndNotify(sock), CHECK_INTERVAL_MS);
+    // First check 45s after boot (let WA settle first)
+    setTimeout(() => checkAndNotify(sock).catch(() => {}), 45000);
+    // Recurring every 4 hours
+    setInterval(() => checkAndNotify(sock).catch(() => {}), CHECK_MS);
 };
 
-// ── Manual .update command handler ─────────────────────────────────
+// ── .update command handler ────────────────────────────────────────
 const doUpdate = async (sock, m, reply) => {
-    const ownerJid = (sock?.user?.id || '').split(':')[0].split('@')[0] + '@s.whatsapp.net';
-    await reply(`🔄 *Checking for updates...*\n\n${sig()}`);
+    await reply(`🔍 *Checking GitHub...*\n\n${sig()}`);
 
+    // 1. Fetch remote SHA
     let remote;
     try {
         remote = await getRemoteSha();
     } catch(e) {
-        return reply(`❌ *Cannot reach GitHub:* ${e.message}\n\n_Check internet / try again later._\n\n${sig()}`);
+        return reply(`❌ *GitHub unreachable*\n${e.message}\n\nCheck internet & try again.\n\n${sig()}`);
     }
 
     const localSha = getLocalSha();
+
+    // 2. Already up to date
     if (localSha && (localSha === remote.sha || remote.fullSha.startsWith(localSha))) {
-        return reply(`✅ *Already up to date!*\n\n📦 Version: \`${localSha}\`\n\n${sig()}`);
+        return reply(`✅ *Already up to date!*\nVersion: \`${localSha}\`\n\n${sig()}`);
     }
 
     await reply(
-        `📦 *Update found!*\n\n` +
-        `📌 Current: \`${localSha || 'unknown'}\`\n` +
-        `🆕 Latest:  \`${remote.sha}\`\n` +
+        `📦 *Update found!*\n` +
+        `Current: \`${localSha || 'unknown'}\`\n` +
+        `Latest:  \`${remote.sha}\`\n` +
         `📝 ${remote.msg}\n\n` +
-        `⏳ *Applying update...*\n\n${sig()}`
+        `⏳ Downloading...\n\n${sig()}`
     );
 
-    // Try git pull first
-    let method = 'git';
-    let updateLog = '';
+    // 3. Try update methods
+    let method = '', log = '';
     try {
         if (isGit()) {
-            updateLog = await gitPull();
-            method = 'git';
+            log    = await gitPull();
+            method = 'git pull';
         } else {
-            throw new Error('Not a git repo');
+            throw new Error('not a git repo');
         }
     } catch(gitErr) {
-        // Fallback: zip download
         try {
-            await reply(`⚠️ Git not available, trying ZIP download...\n\n${sig()}`);
-            updateLog = await zipUpdate();
-            method = 'zip';
+            log    = await zipUpdate();
+            method = 'ZIP download';
         } catch(zipErr) {
             return reply(
                 `❌ *Auto-update failed!*\n\n` +
-                `Git error: ${gitErr.message}\n` +
-                `ZIP error: ${zipErr.message}\n\n` +
-                `*Please update manually:*\n` +
-                `\`git pull origin main && npm install\`\n\n${sig()}`
+                `Git: ${gitErr.message}\n` +
+                `ZIP: ${zipErr.message}\n\n` +
+                `*Manual update:*\n\`git pull origin main && npm install\`\n\n${sig()}`
             );
         }
     }
 
-    // npm install
+    // 4. npm install (non-fatal if it fails)
     try {
         await reply(`📦 *Installing dependencies...*\n\n${sig()}`);
         await npmInstall();
     } catch(e) {
-        console.log('[UPDATER] npm install failed:', e.message);
+        console.log('[UPDATER] npm install error (non-fatal):', e.message);
     }
 
-    // Save new SHA
+    // 5. Save new version
     setLocalSha(remote.sha);
 
-    await reply(
-        `✅ *Update complete!*\n\n` +
-        `🆕 Version: \`${remote.sha}\`\n` +
-        `📦 Method: ${method.toUpperCase()}\n` +
-        `📝 ${updateLog.slice(0, 200)}\n\n` +
-        `🔄 *Restarting bot...*\n\n${sig()}`
-    );
-
-    setTimeout(() => process.exit(0), 2000);
+    // 6. Restart (stable — keeps server alive if no process manager)
+    await gracefulRestart(sock, reply, process.env.PM2_APP_NAME || 'LIAM-LITE');
 };
 
 module.exports = { checkAndNotify, startChecker, doUpdate, getLocalSha, getRemoteSha };
