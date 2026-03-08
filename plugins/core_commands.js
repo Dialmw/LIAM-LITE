@@ -506,20 +506,6 @@ module.exports = [
     }
 },
 
-// 31. quote
-{
-    command: 'quote', category: 'fun',
-    execute: async (sock, m, { reply }) => {
-        try {
-            const { data } = await axios.get('https://zenquotes.io/api/random', { timeout: 8000 });
-            const q = data?.[0];
-            reply(`💭 *Quote of the Day*\n\n_"${q?.q}"_\n— *${q?.a}*\n\n${sig()}`);
-        } catch {
-            reply(`💭 *"Your vibe is your currency — spend it wisely."*\n— LIAM LITE\n\n${sig()}`);
-        }
-    }
-},
-
 // 32. truth
 {
     command: 'truth', category: 'fun',
@@ -547,24 +533,6 @@ module.exports = [
             'Text someone "I love you" and screenshot their reply 💌',
         ];
         reply(`🔥 *TRUTH or DARE → DARE!*\n\n${dares[~~(Math.random()*dares.length)]}\n\n${sig()}`);
-    }
-},
-
-// 34. roll (dice)
-{
-    command: 'roll', category: 'fun',
-    execute: async (sock, m, { text, reply }) => {
-        const sides = parseInt(text) || 6;
-        const result = Math.floor(Math.random() * sides) + 1;
-        reply(`🎲 *Dice Roll (d${sides})*\n\nResult: *${result}*\n\n${sig()}`);
-    }
-},
-
-// 35. flip (coin)
-{
-    command: 'flip', category: 'fun',
-    execute: async (sock, m, { reply }) => {
-        reply(`🪙 *Coin Flip:* ${Math.random() > 0.5 ? '*HEADS* 🌟' : '*TAILS* 🌙'}\n\n${sig()}`);
     }
 },
 
@@ -808,6 +776,43 @@ module.exports = [
             `💘 *Ship Meter*\n\n💑 *${a}* + *${b}*\n\n[${bar}] ${pct}%\n\n` +
             `${pct>=80?'🔥 Perfect match!':pct>=60?'💕 Looking good!':pct>=40?'🤔 Worth a shot':'💔 Probably not...'}\n\n${sig()}`
         );
+    }
+},
+
+
+// ── ALWAYS ONLINE toggle
+{
+    command: 'alwaysonline', category: 'settings', owner: true,
+    execute: async (sock, m, { reply, isCreator }) => {
+        if (!isCreator) return reply(config.message.owner);
+        config.features.alwaysonline = !config.features.alwaysonline;
+        const on = config.features.alwaysonline;
+        await react(sock, m, on ? '🟢' : '❌');
+        reply(`🟢 *Always Online* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+    }
+},
+
+// ── AUTO TYPING toggle
+{
+    command: 'autotyping', category: 'settings', owner: true,
+    execute: async (sock, m, { reply, isCreator }) => {
+        if (!isCreator) return reply(config.message.owner);
+        config.features.autotyping = !config.features.autotyping;
+        const on = config.features.autotyping;
+        await react(sock, m, on ? '⌨️' : '❌');
+        reply(`⌨️ *Auto Typing* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+    }
+},
+
+// ── AUTO RECORDING toggle
+{
+    command: 'autorecord', category: 'settings', owner: true,
+    execute: async (sock, m, { reply, isCreator }) => {
+        if (!isCreator) return reply(config.message.owner);
+        config.features.autorecord = !config.features.autorecord;
+        const on = config.features.autorecord;
+        await react(sock, m, on ? '🎙️' : '❌');
+        reply(`🎙️ *Auto Recording* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
     }
 },
 

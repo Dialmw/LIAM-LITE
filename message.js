@@ -1,6 +1,5 @@
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║  👁️  LIAM LITE — message.js                                           ║
-// ║  NO bot image anywhere • 2 menu styles (classic/fancy) • Ultra-fast   ║
+// ║  ⚡  LIAM LITE — message.js                                            ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 'use strict';
 
@@ -10,7 +9,6 @@ const path   = require('path');
 const chalk  = require('chalk');
 const axios  = require('axios');
 const os     = require('os');
-const moment = require('moment-timezone');
 
 let _jidNorm;
 const loadUtils = async () => {
@@ -19,37 +17,56 @@ const loadUtils = async () => {
     _jidNorm = b.jidNormalizedUser;
 };
 
-const tz = () => config.timezone || 'Africa/Nairobi';
 const sig = () => '> 👁️ 𝐋𝐈𝐀𝐌 𝐋𝐈𝐓𝐄';
-
-// BOT STATE
 let BOT_PAUSED = false;
 
-// PLUGIN LOADER
+// Bold Unicode map
+const boldUni = str => {
+    const m = {A:'𝗔',B:'𝗕',C:'𝗖',D:'𝗗',E:'𝗘',F:'𝗙',G:'𝗚',H:'𝗛',I:'𝗜',J:'𝗝',K:'𝗞',L:'𝗟',M:'𝗠',N:'𝗡',O:'𝗢',P:'𝗣',Q:'𝗤',R:'𝗥',S:'𝗦',T:'𝗧',U:'𝗨',V:'𝗩',W:'𝗪',X:'𝗫',Y:'𝗬',Z:'𝗭',a:'𝗮',b:'𝗯',c:'𝗰',d:'𝗱',e:'𝗲',f:'𝗳',g:'𝗴',h:'𝗵',i:'𝗶',j:'𝗷',k:'𝗸',l:'𝗹',m:'𝗺',n:'𝗻',o:'𝗼',p:'𝗽',q:'𝗾',r:'𝗿',s:'𝘀',t:'𝘁',u:'𝘂',v:'𝘃',w:'𝘄',x:'𝘅',y:'𝘆',z:'𝘇','0':'𝟬','1':'𝟭','2':'𝟮','3':'𝟯','4':'𝟰','5':'𝟱','6':'𝟲','7':'𝟳','8':'𝟴','9':'𝟵',' ':' '};
+    return str.split('').map(c => m[c] || c).join('');
+};
+
+const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 5)  return boldUni('Good Night')    + ' 🌙';
+    if (h < 12) return boldUni('Good Morning')  + ' 🌅';
+    if (h < 17) return boldUni('Good Afternoon')+ ' ☀️';
+    if (h < 21) return boldUni('Good Evening')  + ' 🌇';
+    return boldUni('Good Night') + ' 🌙';
+};
+
+const ramBar = () => {
+    const used  = process.memoryUsage().heapUsed;
+    const total = os.totalmem();
+    const pct   = Math.min(100, Math.round((used / total) * 100));
+    const filled = Math.round(pct / 10);
+    return '■'.repeat(filled) + '□'.repeat(10 - filled) + ' ' + pct + '%';
+};
+
+// ── Plugin Loader ──────────────────────────────────────────────────────────
 class PluginLoader {
     constructor() {
         this.plugins    = new Map();
         this.categories = new Map();
         this.dir        = path.join(__dirname, 'plugins');
         this.catDef = [
-            { key: 'ai',       label: 'AI',         emoji: '🤖' },
-            { key: 'audio',    label: 'AUDIO',       emoji: '🎵' },
-            { key: 'download', label: 'DOWNLOAD',    emoji: '⬇️' },
-            { key: 'fun',      label: 'FUN & GAMES', emoji: '😂' },
-            { key: 'group',    label: 'GROUP',       emoji: '👥' },
-            { key: 'image',    label: 'IMAGE',       emoji: '🌄' },
-            { key: 'other',    label: 'OTHER',       emoji: '📦' },
-            { key: 'owner',    label: 'OWNER',       emoji: '👑' },
-            { key: 'reaction', label: 'REACTION',    emoji: '😍' },
-            { key: 'search',   label: 'SEARCH',      emoji: '🔍' },
-            { key: 'settings', label: 'SETTINGS',    emoji: '⚙️' },
-            { key: 'tools',    label: 'TOOLS',       emoji: '🛠️' },
-            { key: 'video',    label: 'VIDEO',       emoji: '🎬' },
-            { key: 'general',  label: 'GENERAL',     emoji: '✨' },
+            { key:'ai',       label:'AI',       bold:boldUni('AI CMDS'),       emoji:'🤖' },
+            { key:'download', label:'Download',  bold:boldUni('DOWNLOAD CMDS'), emoji:'⬇️' },
+            { key:'fun',      label:'Fun',       bold:boldUni('FUN CMDS'),      emoji:'😂' },
+            { key:'group',    label:'Group',     bold:boldUni('GROUP CMDS'),    emoji:'👥' },
+            { key:'image',    label:'Image',     bold:boldUni('IMAGE CMDS'),    emoji:'🌄' },
+            { key:'reaction', label:'Reaction',  bold:boldUni('REACTION CMDS'), emoji:'😍' },
+            { key:'search',   label:'Search',    bold:boldUni('SEARCH CMDS'),   emoji:'🔍' },
+            { key:'settings', label:'Settings',  bold:boldUni('SETTINGS CMDS'), emoji:'⚙️' },
+            { key:'tools',    label:'Tools',     bold:boldUni('TOOLS CMDS'),    emoji:'🛠️' },
+            { key:'video',    label:'Video',     bold:boldUni('VIDEO CMDS'),    emoji:'🎬' },
+            { key:'other',    label:'Other',     bold:boldUni('OTHER CMDS'),    emoji:'📦' },
+            { key:'general',  label:'General',   bold:boldUni('GENERAL CMDS'),  emoji:'✨' },
         ];
         this.catDef.forEach(c => this.categories.set(c.key, []));
         this.load();
     }
+
     load() {
         this.plugins.clear();
         this.catDef.forEach(c => this.categories.set(c.key, []));
@@ -69,13 +86,14 @@ class PluginLoader {
         }
         let total = 0;
         console.log('');
-        console.log(chalk.hex('#00d4ff').bold('  ┌─ ⚡ LIAM LITE — COMMANDS ─────────────'));
+        console.log(chalk.hex('#00d4ff').bold('  ┌─ ⚡ LIAM LITE COMMANDS ─────────────'));
         for (const c of this.catDef) {
             const n = (this.categories.get(c.key) || []).length;
-            if (n) { console.log(chalk.hex('#a29bfe')(`  │  ${c.emoji} ${c.label.padEnd(12)} `) + chalk.white(String(n))); total += n; }
+            if (n) { console.log(chalk.hex('#a29bfe')(`  │  ${c.emoji} ${c.label.padEnd(10)} `) + chalk.white(String(n))); total += n; }
         }
-        console.log(chalk.hex('#00b894').bold(`  └─ ✔ ${total} commands loaded\n`));
+        console.log(chalk.hex('#00b894').bold(`  └─ ✔ ${total} commands\n`));
     }
+
     async run(cmd, sock, m, ctx) {
         const p = this.plugins.get(cmd);
         if (!p) return false;
@@ -87,79 +105,115 @@ class PluginLoader {
         } catch (e) { console.log(chalk.red(`  [CMD:${cmd}] ${e.message}`)); }
         return true;
     }
+
     count()      { return this.plugins.size; }
     reload()     { this.load(); }
     getCmds(key) { return (this.categories.get(key) || []).sort(); }
 
-    // ── CLASSIC MENU STYLE ────────────────────────────────────────────────────
-    // Box-style headers, compact command list
-    menuClassic(prefix) {
+    // ── FANCY MENU ───────────────────────────────────────────────────────
+    menuFancy(prefix, pushname, sock, ping) {
+        const BL   = boldUni('LIAM  LITE');
+        const BN   = boldUni((pushname || 'User').slice(0,18));
         const lines = [];
+
+        lines.push(`${boldUni('Hey there')} 😁, ${getGreeting()}`);
+        lines.push('');
+        lines.push(`╔══════〚 ⚡ ${BL} 〛══════╗`);
+        lines.push(`║✫╭─╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍`);
+        lines.push(`║✫┃ ${boldUni('User')} : ${BN}`);
+        lines.push(`║✫┃ ${boldUni('Prefix')} : ${boldUni(prefix)}`);
+        lines.push(`║✫┃ ${boldUni('Mode')} : ${boldUni(sock.public ? 'Public' : 'Private')}`);
+        lines.push(`║✫┃ ${boldUni('Tcmds')} : ${boldUni(this.count() + '+')}`);
+        lines.push(`║✫┃ ${boldUni('Speed')} : ${boldUni(ping + 'ms')}`);
+        lines.push(`║✫┃ ${boldUni('RAM Usage')} : ${ramBar()}`);
+        lines.push(`║✫┃═════════════════════`);
+        lines.push(`║✫┃ █■█■█■█■█■█■█■█■█■█`);
+        lines.push(`║✫┃═════════════════════`);
+        lines.push(`╚════════════════════════╝`);
+        lines.push('');
+
+        const BT = '╭══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╮';
+        const BB = '╰══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╯';
+
         for (const c of this.catDef) {
             const cmds = this.getCmds(c.key);
             if (!cmds.length) continue;
-            lines.push(`\n╭──『 *${c.emoji} ${c.label}* 』`);
-            cmds.forEach(cmd => lines.push(`│  • ${prefix}${cmd}`));
-            lines.push('╰' + '─'.repeat(26));
+            lines.push(`> ${c.bold}`);
+            lines.push(BT);
+            cmds.forEach(cmd => lines.push(`┃✦│ ${prefix}${cmd}`));
+            lines.push(BB);
+            lines.push('');
         }
+
         return lines.join('\n');
     }
 
-    // ── FANCY MENU STYLE ──────────────────────────────────────────────────────
-    // Modern aesthetic with category emojis and decorative borders
-    menuFancy(prefix) {
+    // ── CLASSIC MENU ─────────────────────────────────────────────────────
+    menuClassic(prefix) {
         const lines = [];
+        lines.push(`╔══════════════════════╗`);
+        lines.push(`║ ⚡ *LIAM LITE*       ║`);
+        lines.push(`╚══════════════════════╝`);
+        lines.push('');
+
         for (const c of this.catDef) {
             const cmds = this.getCmds(c.key);
             if (!cmds.length) continue;
-            lines.push(`\n┌━━━━━━━━━━━━━━━━━━━━━━━┐`);
-            lines.push(`  ${c.emoji}  *${c.label}*`);
-            lines.push(`└━━━━━━━━━━━━━━━━━━━━━━━┘`);
-            const mid = Math.ceil(cmds.length / 2);
-            const rows = [];
-            for (let i = 0; i < mid; i++) {
-                const left  = `${prefix}${cmds[i]}`.padEnd(18);
-                const right = cmds[i+mid] ? `${prefix}${cmds[i+mid]}` : '';
-                rows.push(`  ⚡ ${left}${right ? '⚡ ' + right : ''}`);
-            }
-            rows.forEach(r => lines.push(r));
+            const label  = `${c.emoji} ${c.label}`;
+            const width  = 22;
+            const pad    = Math.max(1, Math.floor((width - label.length) / 2));
+            const dashes = '─'.repeat(pad);
+            lines.push(`╭${dashes}${label}${dashes}╮`);
+            cmds.forEach(cmd => lines.push(`│ ${prefix}${cmd}`));
+            lines.push(`╰${'─'.repeat(width)}╯`);
+            lines.push('');
         }
+
         return lines.join('\n');
     }
 }
 
 const PL = new PluginLoader();
 
-// CHATBOT (Pollinations)
+// ── Chatbot ────────────────────────────────────────────────────────────────
 const chatHistory = new Map();
 const chatbotReply = async (jid, userText) => {
     if (!chatHistory.has(jid)) chatHistory.set(jid, []);
     const hist = chatHistory.get(jid);
     hist.push({ role: 'user', content: userText });
-    if (hist.length > 16) chatHistory.set(jid, hist.slice(-16));
+    if (hist.length > 14) chatHistory.set(jid, hist.slice(-14));
     const ctx = hist.slice(-6).map(h => (h.role === 'user' ? 'User: ' : 'Bot: ') + h.content).join('\n');
     try {
-        const prompt = `You are LIAM LITE👁️ — a witty WhatsApp bot. Reply short, natural, match user vibe. NEVER say you are Claude/ChatGPT/Anthropic.\n\n${ctx}\nBot:`;
+        const prompt = `You are LIAM LITE👁️ by Liam. Reply short, match user vibe. NEVER say you are Claude/ChatGPT/Anthropic.\n\n${ctx}\nBot:`;
         const { data } = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(prompt)}`, { timeout: 10000 });
-        const reply = (data?.toString() || '').trim();
-        if (reply?.length > 2) { hist.push({ role: 'assistant', content: reply }); return reply; }
+        const r = (data?.toString() || '').trim();
+        if (r?.length > 2) { hist.push({ role: 'assistant', content: r }); return r; }
     } catch(_) {}
     return '😅 Glitch! Try again.';
 };
 
-// CONSOLE LOG
-const logMsg = (pushname, senderNum, isGroup, chatId, body) => {
+// ── Log ────────────────────────────────────────────────────────────────────
+const logMsg = (pushname, senderNum, isGroup, body) => {
     const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-    console.log(chalk.hex('#00d4ff')(`  ⚡ [${time}] `) + chalk.hex('#fdcb6e')(pushname) + chalk.hex('#888')(` (+${senderNum}) `) + (isGroup ? chalk.hex('#a29bfe')('[GROUP] ') : chalk.hex('#fd79a8')('[DM] ')) + chalk.white((body||'').slice(0,60)));
+    const loc  = isGroup ? chalk.hex('#a29bfe')('[GRP]') : chalk.hex('#fd79a8')('[DM]');
+    console.log(chalk.hex('#00d4ff')(`  [${time}] `) + chalk.hex('#fdcb6e')(pushname.slice(0,12)) + chalk.hex('#888')(` +${senderNum} `) + loc + ' ' + chalk.white((body||'').slice(0,55)));
 };
 
-// MAIN HANDLER
+// ── Main Handler ───────────────────────────────────────────────────────────
 module.exports = async (sock, m, chatUpdate) => {
     try {
         await loadUtils();
+
         const body = (
-            m.body || m.message?.conversation || m.message?.extendedTextMessage?.text ||
-            m.message?.imageMessage?.caption || m.message?.videoMessage?.caption || ''
+            m.body ||
+            m.message?.conversation ||
+            m.message?.extendedTextMessage?.text ||
+            m.message?.imageMessage?.caption ||
+            m.message?.videoMessage?.caption ||
+            m.message?.documentMessage?.caption ||
+            m.message?.buttonsResponseMessage?.selectedButtonId ||
+            m.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+            ''
         ).toString().trim();
 
         const botId     = (sock.user?.id || '').split(':')[0] + '@s.whatsapp.net';
@@ -168,7 +222,7 @@ module.exports = async (sock, m, chatUpdate) => {
         const pushname  = m.pushName || 'User';
 
         const prefixMatch = body.match(/^[.!#$]/);
-        const prefix  = prefixMatch ? prefixMatch[0] : (config.settings?.prefix || '.');
+        const prefix  = prefixMatch ? prefixMatch[0] : (config.settings?.prefix || config.prefix || '.');
         const isCmd   = !!prefixMatch;
         const command = isCmd ? body.slice(1).trim().split(/\s+/)[0].toLowerCase() : '';
         const args    = isCmd ? body.trim().split(/\s+/).slice(1) : [];
@@ -189,19 +243,20 @@ module.exports = async (sock, m, chatUpdate) => {
         let groupMetadata = {}, groupName = '', participants = [],
             groupAdmins = [], isBotAdmins = false, isAdmins = false;
         if (m.isGroup) {
-            groupMetadata = await sock.groupMetadata(m.chat).catch(() => ({}));
-            groupName     = groupMetadata.subject || '';
-            participants  = (groupMetadata.participants || []).map(p => ({ id: p.id, admin: p.admin || null }));
-            groupAdmins   = participants.filter(p => p.admin).map(p => p.id);
-            isBotAdmins   = groupAdmins.includes(botId);
-            isAdmins      = groupAdmins.includes(sender);
+            try {
+                groupMetadata = await sock.groupMetadata(m.chat);
+                groupName     = groupMetadata.subject || '';
+                participants  = (groupMetadata.participants || []).map(p => ({ id: p.id, admin: p.admin || null }));
+                groupAdmins   = participants.filter(p => p.admin).map(p => p.id);
+                isBotAdmins   = groupAdmins.includes(botId);
+                isAdmins      = groupAdmins.includes(sender);
+            } catch(_) {}
         }
 
-        logMsg(pushname, senderNum, m.isGroup, m.chat, body);
+        logMsg(pushname, senderNum, m.isGroup, body);
 
         if (BOT_PAUSED && !isCreator) return;
 
-        // reply — PLAIN TEXT, NO image anywhere
         const reply = txt => sock.sendMessage(m.chat, { text: txt }, { quoted: m }).catch(() => {});
 
         const ctx = {
@@ -213,26 +268,25 @@ module.exports = async (sock, m, chatUpdate) => {
 
         // Auto-features
         const feat = config.features || {};
-        if (feat.autoread && !m.key.fromMe) sock.readMessages([m.key]).catch(() => {});
+        if (feat.autoread   && !m.key.fromMe) sock.readMessages([m.key]).catch(() => {});
+        if (feat.autotyping && !m.key.fromMe) sock.sendPresenceUpdate('composing', m.chat).catch(() => {});
+        if (feat.autorecord && !m.key.fromMe) sock.sendPresenceUpdate('recording', m.chat).catch(() => {});
+
         if (feat.antilink && m.isGroup && !isAdmins && !isCreator) {
             if (/(https?:\/\/|wa\.me\/)/i.test(body)) {
                 sock.sendMessage(m.chat, { delete: m.key }).catch(() => {});
-                return reply(`⚠️ @${senderNum} Links not allowed here!`);
+                return reply(`⚠️ @${senderNum} Links not allowed!`);
             }
         }
 
         // "bot" keyword — groups only
         if (!m.key.fromMe && !isCmd && m.isGroup && /\bbot\b/i.test(body)) {
-            await reply(
-                `⚡ *LIAM LITE*\n\nHey ${pushname}! 👋\n\n` +
-                `🔗 *Get Session:* ${config.pairingSite}\n` +
-                `📦 *Source:* ${config.github}\n\n` +
-                `_Type *${prefix}menu* to see commands_\n\n${sig()}`
-            );
+            await reply(`⚡ *LIAM LITE*\n\nHey ${pushname}! 👋\n\n🔗 *Session:* ${config.pairingSite}\n📦 *Source:* ${config.github}\n\n_Type *${prefix}menu* for commands_\n\n${sig()}`);
+            return;
         }
 
         // Chatbot
-        if (feat.chatbot && !m.key.fromMe && !isCmd && body.trim().length > 0) {
+        if (feat.chatbot && !m.key.fromMe && !isCmd && body.trim().length > 1) {
             try {
                 sock.sendPresenceUpdate('composing', m.chat).catch(() => {});
                 const botReply = await chatbotReply(m.chat, body.trim());
@@ -240,72 +294,27 @@ module.exports = async (sock, m, chatUpdate) => {
                 return await reply(botReply);
             } catch(_) { return await reply('😅 Hiccup!'); }
         }
+
         if (!isCmd) return;
 
         // Plugin dispatch
         if (await PL.run(command, sock, m, ctx)) return;
 
-        // .menu / .help — NO image anywhere
+        // .menu / .help
         if (command === 'menu' || command === 'help') {
-            const style  = config.menuStyle || 'fancy';
-            const up     = process.uptime();
-            const upStr  = `${~~(up/3600)}h ${~~(up%3600/60)}m`;
-            const ping   = Math.max(0, Date.now() - (m.messageTimestamp || 0) * 1000);
-            const total  = PL.count();
-            const mem    = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(0) + 'MB';
-            const host   = global._hostName || '🖥️ VPS';
-            const botName = config.settings?.title || '𝐋𝐈𝐀𝐌 𝐋𝐈𝐓𝐄';
-            const utype  = isCreator ? 'Owner' : isAdmins ? 'Admin' : 'User';
-            const styleHint = `\n\n_Change style: *.classic* | *.fancy*_`;
-
-            if (style === 'classic') {
-                const hdr =
-                    `╔${'═'.repeat(34)}╗\n` +
-                    `║  ⚡ *${botName}* — Mini Bot  ║\n` +
-                    `╚${'═'.repeat(34)}╝\n` +
-                    `_👁️ Fast & Light WhatsApp Bot_\n\n` +
-                    `  ⚡ *Ping*   › ${ping}ms\n` +
-                    `  ⏱️ *Uptime* › ${upStr}\n` +
-                    `  💾 *RAM*    › ${mem}\n` +
-                    `  📦 *Cmds*   › ${total}\n` +
-                    `  🌍 *Mode*   › ${sock.public ? 'Public' : 'Private'}\n` +
-                    `  🖥️ *Host*   › ${host}\n` +
-                    `  🔰 *Prefix* › ${prefix}\n`;
-                await reply(hdr + PL.menuClassic(prefix) + styleHint);
-                return;
-            }
-
-            // Fancy (default)
-            const hdr =
-                `┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n` +
-                `  ⚡ *${botName}*\n` +
-                `  👁️ Fast & Light Bot\n` +
-                `┗━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n` +
-                `  ⚡ ${ping}ms  |  ⏱️ ${upStr}  |  💾 ${mem}\n` +
-                `  📦 ${total} cmds  |  🔰 ${prefix}  |  🌍 ${sock.public?'Public':'Private'}\n` +
-                `  🖥️ ${host}  |  👤 ${utype}\n`;
-            await reply(hdr + PL.menuFancy(prefix) + styleHint);
+            const style = config.menuStyle || 'fancy';
+            const ping  = Math.max(0, Date.now() - (m.messageTimestamp || 0) * 1000);
+            if (style === 'classic') { await reply(PL.menuClassic(prefix)); return; }
+            await reply(PL.menuFancy(prefix, pushname, sock, ping));
             return;
         }
 
         // Built-ins
-        if (command === 'kill') {
-            if (!isCreator) return reply(config.message.owner);
-            BOT_PAUSED = true;
-            return reply(`🔴 *Bot Paused*\n\nUse *${prefix}wake* to resume.\n\n${sig()}`);
-        }
-        if (command === 'wake') {
-            if (!isCreator) return reply(config.message.owner);
-            BOT_PAUSED = false;
-            return reply(`🟢 *Bot Active*\n\n${sig()}`);
-        }
-        if (command === 'classic') { config.menuStyle = 'classic'; return reply(`✅ *Menu style → Classic*\n\n${sig()}`); }
-        if (command === 'fancy')   { config.menuStyle = 'fancy';   return reply(`✅ *Menu style → Fancy*\n\n${sig()}`); }
-        if (command === 'reload') {
-            if (!isCreator) return reply(config.message.owner);
-            PL.reload();
-            return reply(`✅ *Reloaded* — ${PL.count()} commands\n\n${sig()}`);
-        }
+        if (command === 'kill')    { if (!isCreator) return reply(config.message.owner); BOT_PAUSED = true;  return reply(`🔴 *Paused*\n\n${sig()}`); }
+        if (command === 'wake')    { if (!isCreator) return reply(config.message.owner); BOT_PAUSED = false; return reply(`🟢 *Active*\n\n${sig()}`); }
+        if (command === 'classic') { config.menuStyle = 'classic'; return reply(`✅ Style → Classic\n\n${sig()}`); }
+        if (command === 'fancy')   { config.menuStyle = 'fancy';   return reply(`✅ Style → Fancy\n\n${sig()}`); }
+        if (command === 'reload')  { if (!isCreator) return reply(config.message.owner); PL.reload(); return reply(`✅ Reloaded — ${PL.count()} cmds\n\n${sig()}`); }
 
     } catch (e) { console.log(chalk.red('[MSG ERR] ' + (e.message || e))); }
 };
