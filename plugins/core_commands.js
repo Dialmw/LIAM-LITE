@@ -580,20 +580,23 @@ module.exports = [
 {
     command: 'tostatus', category: 'tools', owner: true,
     execute: async (sock, m, { text, reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
+        if (!isCreator) return reply('𝙈𝙢𝙢 𝙣𝙤𝙩 𝙖𝙡𝙡𝙤𝙬𝙚𝙙 🫵, 𝙖𝙨𝙠 𝙢𝙮 𝙢𝙖𝙨𝙩𝙚𝙧 👁️');
         const q = m.quoted;
         if (!q && !text) return reply(`❗ Reply to media or provide text.\n\n${sig()}`);
         await react(sock, m, '📤');
         try {
+            // statusJidList MUST include owner so they see their own status
+            const ownerJid = (sock.user?.id||'').split(':')[0]+'@s.whatsapp.net';
             const mime = (q?.msg || q)?.mimetype || '';
+            const opts = { statusJidList: [ownerJid] };
             if (q && mime.includes('image')) {
                 const buf = await sock.downloadMediaMessage(q);
-                await sock.sendMessage('status@broadcast', { image: buf, caption: text || '👁️ LIAM LITE' });
+                await sock.sendMessage('status@broadcast', { image: buf, caption: text || '👁️ LIAM LITE', ...opts });
             } else if (q && mime.includes('video')) {
                 const buf = await sock.downloadMediaMessage(q);
-                await sock.sendMessage('status@broadcast', { video: buf, caption: text || '👁️ LIAM LITE' });
+                await sock.sendMessage('status@broadcast', { video: buf, caption: text || '👁️ LIAM LITE', ...opts });
             } else {
-                await sock.sendMessage('status@broadcast', { text: `${text||'👁️ LIAM LITE'}\n\n${sig()}` });
+                await sock.sendMessage('status@broadcast', { text: `${text||'👁️ LIAM LITE'}\n\n${sig()}`, ...opts });
             }
             await react(sock, m, '✅');
             reply(`✅ *Posted to status!*\n\n${sig()}`);
