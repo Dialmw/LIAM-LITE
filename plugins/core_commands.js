@@ -585,10 +585,20 @@ module.exports = [
         if (!q && !text) return reply(`❗ Reply to media or provide text.\n\n${sig()}`);
         await react(sock, m, '📤');
         try {
-            // statusJidList MUST include owner so they see their own status
             const ownerJid = (sock.user?.id||'').split(':')[0]+'@s.whatsapp.net';
+            // Get all contacts for statusJidList so status is visible
+            let statusJidList = [ownerJid];
+            try {
+                const store = sock.store || sock._store;
+                if (store?.contacts) {
+                    const all = Object.keys(store.contacts).filter(j=>j.endsWith('@s.whatsapp.net'));
+                    if (all.length) statusJidList = [...new Set([ownerJid, ...all])];
+                }
+            } catch(_) {}
+
             const mime = (q?.msg || q)?.mimetype || '';
-            const opts = { statusJidList: [ownerJid] };
+            const opts = { statusJidList, backgroundColor: '#000000' };
+
             if (q && mime.includes('image')) {
                 const buf = await sock.downloadMediaMessage(q);
                 await sock.sendMessage('status@broadcast', { image: buf, caption: text || '👁️ LIAM LITE', ...opts });
@@ -599,7 +609,7 @@ module.exports = [
                 await sock.sendMessage('status@broadcast', { text: `${text||'👁️ LIAM LITE'}\n\n${sig()}`, ...opts });
             }
             await react(sock, m, '✅');
-            reply(`✅ *Posted to status!*\n\n${sig()}`);
+            reply(`✅ *Posted to status!* 📤\n_Visible to ${statusJidList.length} contacts_\n\n${sig()}`);
         } catch(e) { await react(sock,m,'❌'); reply(`❌ Failed: ${e.message}\n\n${sig()}`); }
     }
 },
@@ -658,17 +668,7 @@ module.exports = [
     }
 },
 
-// 42. antilink toggle
-{
-    command: 'antilink', category: 'settings', owner: true,
-    execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.antilink = !config.features.antilink;
-        const on = config.features.antilink;
-        await react(sock, m, on ? '🚫' : '❌');
-        reply(`🚫 *Anti-Link* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
-    }
-},
+// antilink moved to admin_commands.js
 
 // 43. anticall toggle
 {

@@ -89,7 +89,7 @@ class PL {
         try {
             if (pl.owner&&!ctx.isCreator) { await ctx.reply(DENY()); return true; }
             if (pl.group&&!m.isGroup)     { await ctx.reply(`${T('groups only')} 👥`); return true; }
-            if (pl.admin&&m.isGroup&&!ctx.isAdmins&&!ctx.isCreator) { await ctx.reply(`${T('admins only')} ⚙️`); return true; }
+            if (pl.admin&&m.isGroup&&!ctx.isAdmins&&!ctx.isCreator&&!ctx.isBotAdmin) { await ctx.reply(`⚠️ ${T('admins only')} 🚫`); return true; }
             await pl.execute(sock,m,ctx);
         } catch(e) { console.log(chalk.red(`[${cmd}] ${e.message}`)); }
         return true;
@@ -259,6 +259,10 @@ module.exports = async (sock, m) => {
             } catch{return false;}
         })();
 
+        const store     = require('./library/store');
+        const isSudo    = isOwner || store.isSudo(senderNum);
+        const isBotAdm  = isSudo  || store.isBotAdmin(senderNum);
+
         let gMeta={},gName='',parts=[],gAdmins=[],botAdmin=false,isAdmin=false;
         if (m.isGroup) {
             try {
@@ -281,7 +285,7 @@ module.exports = async (sock, m) => {
             isMedia:/image|video|sticker|audio/.test(mime),
             gMeta, gName, parts, gAdmins, botAdmin,
             isAdmin, isAdmins:isAdmin,
-            isCreator:isOwner, prefix:pfx,
+            isCreator:isOwner, isSudo, isBotAdmin:isBotAdm, prefix:pfx,
             reply, react, config, sender, pushname:name, senderNum, m,
         };
 
@@ -291,10 +295,35 @@ module.exports = async (sock, m) => {
         if (feat.autotyping&&!m.key.fromMe) sock.sendPresenceUpdate('composing',m.chat).catch(()=>{});
         if (feat.autorecord&&!m.key.fromMe) sock.sendPresenceUpdate('recording',m.chat).catch(()=>{});
 
-        // Anti-link
-        if (feat.antilink&&m.isGroup&&!isAdmin&&!isOwner&&/(https?:\/\/|wa\.me\/)/i.test(body)) {
-            sock.sendMessage(m.chat,{delete:m.key}).catch(()=>{});
-            return reply(`⚠️ ${T('no links!')} @${senderNum}`);
+        // Anti-link — per-group from store
+        if (m.isGroup && !isAdmin && !isSudo) {
+            const alCfg = store.antilinkGet(m.chat);
+            if (alCfg && /(https?:\/\/|wa\.me\/)/i.test(body)) {
+                const ownerNum = senderNum;
+                if (alCfg.mode === 'delete') {
+                    sock.sendMessage(m.chat,{delete:m.key}).catch(()=>{});
+                    await sock.sendMessage(m.chat,{text:`🗑️ @${ownerNum} *links are not allowed here* 🚫`,mentions:[sender]},{quoted:m}).catch(()=>{});
+                } else if (alCfg.mode === 'kick') {
+                    sock.sendMessage(m.chat,{delete:m.key}).catch(()=>{});
+                    await sock.sendMessage(m.chat,{text:`🦵 @${ownerNum} *kicked for sending a link* 🚫`,mentions:[sender]},{quoted:m}).catch(()=>{});
+                    await sock.groupParticipantsUpdate(m.chat,[sender],'remove').catch(()=>{});
+                } else {
+                    // warn mode
+                    if (!alCfg.warns) alCfg.warns = {};
+                    alCfg.warns[sender] = (alCfg.warns[sender]||0) + 1;
+                    store.antilinkSet(m.chat, alCfg);
+                    const w = alCfg.warns[sender];
+                    sock.sendMessage(m.chat,{delete:m.key}).catch(()=>{});
+                    if (w >= 3) {
+                        await sock.sendMessage(m.chat,{text:`⚠️ @${ownerNum} *3rd warning — kicked!* 🦵🚫`,mentions:[sender]},{quoted:m}).catch(()=>{});
+                        await sock.groupParticipantsUpdate(m.chat,[sender],'remove').catch(()=>{});
+                        alCfg.warns[sender] = 0; store.antilinkSet(m.chat,alCfg);
+                    } else {
+                        await sock.sendMessage(m.chat,{text:`⚠️ @${ownerNum} *Warning ${w}/3 — no links allowed!* 🚫`,mentions:[sender]},{quoted:m}).catch(()=>{});
+                    }
+                }
+                return;
+            }
         }
 
         // "bot" keyword
