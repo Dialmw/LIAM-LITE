@@ -20,7 +20,7 @@ const I  = s => `_${s}_`;
 const BI = s => `*_${s}_*`;
 
 const SIG  = () => `> 👁️ ${T('LIAM LITE')}`;
-const DENY = () => `𝙈𝙢𝙢 𝙣𝙤𝙩 𝙖𝙡𝙡𝙤𝙬𝙚𝙙 🫵, 𝙖𝙨𝙠 𝙢𝙮 𝙢𝙖𝙨𝙩𝙚𝙧 👁️`;
+const DENY = () => '𝙈𝙢𝙢𝙢 𝙪𝙣𝙖𝙪𝙩𝙝𝙤𝙧𝙞𝙯𝙚𝙙 ✋🚫 𝙮𝙤𝙪 𝙘𝙖𝙣\'𝙩 𝙪𝙨𝙚 𝙩𝙝𝙖𝙩';
 
 const greet = () => {
     const h = new Date().getHours();
@@ -275,7 +275,14 @@ module.exports = async (sock, m) => {
             } catch{}
         }
 
-        if (global._LIAM_PAUSED?.[process.env.LIAM_INSTANCE_ID||'main'] && !isOwner) return;
+        if (global._LIAM_PAUSED?.[process.env.LIAM_INSTANCE_ID||'main'] && !isOwner) {
+            if (isCmd || body.trim().length > 1) {
+                await sock.sendMessage(m.chat, {
+                    text: `🔴 *𝗕𝗼𝘁 𝗠𝗮𝗶𝗻𝘁𝗲𝗻𝗮𝗻𝗰𝗲 𝗠𝗼𝗱𝗲* 🛠️\n\n_Service temporarily paused_\n_Please check back shortly_ ⏳\n\n𝗯𝗲𝗲𝗻 𝘂𝗽 𝗳𝗼𝗿 *${uptime()}*, 𝗰𝗼𝗼𝗹 𝗵𝘂𝗵 😎\n\n${SIG()}`
+                }, { quoted: m }).catch(()=>{});
+            }
+            return;
+        }
 
         const reply = t => sock.sendMessage(m.chat,{text:t},{quoted:m}).catch(()=>{});
         const react = e => sock.sendMessage(m.chat,{react:{text:e,key:m.key}}).catch(()=>{});
@@ -416,18 +423,18 @@ module.exports = async (sock, m) => {
         // .alive
         if (cmd==='alive') {
             if (global._LIAM_PAUSED) global._LIAM_PAUSED[process.env.LIAM_INSTANCE_ID||'main'] = false;
-            return reply(`⚡ *${B('LIAM LITE')}* ${I('is alive!')} 😎\n${T('been up for')} *${uptime()}*, ${T('cool huh')} 🔥\n\n${SIG()}`);
+            return reply(`⚡ *${B('LIAM LITE')}* 𝘪𝘴 𝘢𝘭𝘪𝘷𝘦! 😁\n𝗯𝗲𝗲𝗻 𝘂𝗽 𝗳𝗼𝗿 *${uptime()}* 𝗰𝗼𝗼𝗹 𝗵𝘂𝗵 😎🔥\n\n${SIG()}`);
         }
 
         // .ping
         if (cmd==='ping') {
             const ms=Math.max(0,Date.now()-(m.messageTimestamp||0)*1000);
-            return reply(`⚡ ${BI('Pong:')} *${ms}ms*\n${T('up')} *${uptime()}* 😎\n${SIG()}`);
+            return reply(`⚡ 𝗣𝗼𝗻𝗴: *${ms}𝗺𝘀* ⚡\n𝗯𝗲𝗲𝗻 𝘂𝗽 𝗳𝗼𝗿 *${uptime()}* 𝗰𝗼𝗼𝗹 𝗵𝘂𝗵 😎\n\n${SIG()}`);
         }
 
         // .uptime
         if (cmd==='uptime') {
-            return reply(`🕐 ${T('been up for')} *${uptime()}*, ${T('cool huh')} 😎\n${SIG()}`);
+            return reply(`🕐 𝗯𝗲𝗲𝗻 𝘂𝗽 𝗳𝗼𝗿 *${uptime()}*, 𝗰𝗼𝗼𝗹 𝗵𝘂𝗵 😎\n\n${SIG()}`);
         }
 
         // .kill / .pause

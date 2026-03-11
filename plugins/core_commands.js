@@ -11,7 +11,8 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const execP  = promisify(exec);
 
-const sig   = () => '> 👁️ 𝐋𝐈𝐀𝐌 𝐋𝐈𝐓𝐄';
+const sig   = () => '> 👁️ 𝗟𝗜𝗔𝗠 𝗟𝗜𝗧𝗘 𝗔𝗹𝗽𝗵𝗮';
+const DENY  = () => '𝙈𝙢𝙢𝙢 𝙪𝙣𝙖𝙪𝙩𝙝𝙤𝙧𝙞𝙯𝙚𝙙 ✋🚫 𝙮𝙤𝙪 𝙘𝙖𝙣\'𝙩 𝙪𝙨𝙚 𝙩𝙝𝙖𝙩';
 const react = (s,m,e) => s.sendMessage(m.chat,{react:{text:e,key:m.key}}).catch(()=>{});
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const getTmp = ext => path.join(os.tmpdir(), `liam_lite_${Date.now()}${ext}`);
@@ -118,11 +119,12 @@ module.exports = [
 {
     command: 'chatbot', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.chatbot = !config.features.chatbot;
-        const on = config.features.chatbot;
-        await react(sock, m, on ? '🤖' : '❌');
-        reply(`🤖 *Chatbot* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+        if (!isCreator) return reply(DENY());
+        const cur = config.features.chatbot;
+        if (cur) return reply(`🤖 *Chatbot* already *🟢 ACTIVE*\n_Use_ *.chatbot off* _to disable_\n\n${sig()}`);
+        config.features.chatbot = true;
+        await react(sock, m, '🤖');
+        reply(`🤖 *Chatbot* — ✅ *ON*\n\n${sig()}`);
     }
 },
 
@@ -147,30 +149,7 @@ module.exports = [
     }
 },
 
-// 10. song
-{
-    command: 'song', category: 'download',
-    execute: async (sock, m, { text, reply }) => {
-        if (!text) return reply(`❓ Usage: *.song <name>*\n\n${sig()}`);
-        await react(sock, m, '🎵');
-        try {
-            const ytsr = require('yt-search');
-            const res  = await ytsr(text);
-            const vid  = res.videos[0];
-            if (!vid) throw new Error('No results');
-            // Use cobalt.tools API (free, fast)
-            const { data } = await axios.post('https://co.wuk.sh/api/json', {
-                url: vid.url, isAudioOnly: true, aFormat: 'mp3'
-            }, { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }, timeout: 20000 });
-            const audioUrl = data?.url;
-            if (!audioUrl) throw new Error('No download URL');
-            await sock.sendMessage(m.chat, {
-                audio: { url: audioUrl }, mimetype: 'audio/mpeg',
-            }, { quoted: m });
-            await react(sock, m, '✅');
-        } catch(e) { await react(sock,m,'❌'); reply(`❌ Song failed: ${e.message}\n\n${sig()}`); }
-    }
-},
+// song moved to music_commands.js
 
 // 11. ytmp3
 {
@@ -660,11 +639,12 @@ module.exports = [
 {
     command: 'antidelete', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.antidelete = !config.features.antidelete;
-        const on = config.features.antidelete;
-        await react(sock, m, on ? '🗑️' : '❌');
-        reply(`🗑️ *Anti-Delete* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+        if (!isCreator) return reply(DENY());
+        const cur = config.features.antidelete;
+        if (cur) return reply(`🗑️ *Anti-Delete* is already *🟢 ACTIVE*\n_Use_ *.${cmd} off* _to disable_\n\n${sig()}`);
+        config.features.antidelete = true;
+        await react(sock, m, '🗑️');
+        reply(`🗑️ *Anti-Delete* — ✅ *ON*\n\n${sig()}`);
     }
 },
 
@@ -674,11 +654,12 @@ module.exports = [
 {
     command: 'anticall', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.anticall = !config.features.anticall;
-        const on = config.features.anticall;
-        await react(sock, m, on ? '📵' : '❌');
-        reply(`📵 *Anti-Call* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+        if (!isCreator) return reply(DENY());
+        const cur = config.features.anticall;
+        if (cur) return reply(`📵 *Anti-Call* is already *🟢 ACTIVE*\n_Use_ *.${cmd} off* _to disable_\n\n${sig()}`);
+        config.features.anticall = true;
+        await react(sock, m, '📵');
+        reply(`📵 *Anti-Call* — ✅ *ON*\n\n${sig()}`);
     }
 },
 
@@ -686,11 +667,12 @@ module.exports = [
 {
     command: 'autoviewstatus', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.autoviewstatus = !config.features.autoviewstatus;
-        const on = config.features.autoviewstatus;
-        await react(sock, m, on ? '👁️' : '❌');
-        reply(`👁️ *Auto View Status* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+        if (!isCreator) return reply(DENY());
+        const cur = config.features.autoviewstatus;
+        if (cur) return reply(`👁️ *Auto View Status* is already *🟢 ACTIVE*\n_Use_ *.${cmd} off* _to disable_\n\n${sig()}`);
+        config.features.autoviewstatus = true;
+        await react(sock, m, '👁️');
+        reply(`👁️ *Auto View Status* — ✅ *ON*\n\n${sig()}`);
     }
 },
 
@@ -698,11 +680,12 @@ module.exports = [
 {
     command: 'autoreactstatus', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.autoreactstatus = !config.features.autoreactstatus;
-        const on = config.features.autoreactstatus;
-        await react(sock, m, on ? '😍' : '❌');
-        reply(`😍 *Auto React Status* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+        if (!isCreator) return reply(DENY());
+        const cur = config.features.autoreactstatus;
+        if (cur) return reply(`😍 *Auto React Status* is already *🟢 ACTIVE*\n_Use_ *.${cmd} off* _to disable_\n\n${sig()}`);
+        config.features.autoreactstatus = true;
+        await react(sock, m, '😍');
+        reply(`😍 *Auto React Status* — ✅ *ON*\n\n${sig()}`);
     }
 },
 
@@ -710,7 +693,7 @@ module.exports = [
 {
     command: 'mode', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator, args }) => {
-        if (!isCreator) return reply(config.message.owner);
+        if (!isCreator) return reply(DENY());
         const arg = (args[0] || '').toLowerCase();
         if (arg === 'public') { sock.public = true; config.status = { public: true }; }
         else if (arg === 'private') { sock.public = false; config.status = { public: false }; }
@@ -787,11 +770,12 @@ module.exports = [
 {
     command: 'alwaysonline', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.alwaysonline = !config.features.alwaysonline;
-        const on = config.features.alwaysonline;
-        await react(sock, m, on ? '🟢' : '❌');
-        reply(`🟢 *Always Online* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+        if (!isCreator) return reply(DENY());
+        const cur = config.features.alwaysonline;
+        if (cur) return reply(`🟢 *Always Online* is already *🟢 ACTIVE*\n_Use_ *.${cmd} off* _to disable_\n\n${sig()}`);
+        config.features.alwaysonline = true;
+        await react(sock, m, '🟢');
+        reply(`🟢 *Always Online* — ✅ *ON*\n\n${sig()}`);
     }
 },
 
@@ -799,11 +783,12 @@ module.exports = [
 {
     command: 'autotyping', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.autotyping = !config.features.autotyping;
-        const on = config.features.autotyping;
-        await react(sock, m, on ? '⌨️' : '❌');
-        reply(`⌨️ *Auto Typing* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+        if (!isCreator) return reply(DENY());
+        const cur = config.features.autotyping;
+        if (cur) return reply(`⌨️ *Auto Typing* is already *🟢 ACTIVE*\n_Use_ *.${cmd} off* _to disable_\n\n${sig()}`);
+        config.features.autotyping = true;
+        await react(sock, m, '⌨️');
+        reply(`⌨️ *Auto Typing* — ✅ *ON*\n\n${sig()}`);
     }
 },
 
@@ -811,11 +796,12 @@ module.exports = [
 {
     command: 'autorecord', category: 'settings', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
-        config.features.autorecord = !config.features.autorecord;
-        const on = config.features.autorecord;
-        await react(sock, m, on ? '🎙️' : '❌');
-        reply(`🎙️ *Auto Recording* — ${on ? '✅ ON' : '❌ OFF'}\n\n${sig()}`);
+        if (!isCreator) return reply(DENY());
+        const cur = config.features.autorecord;
+        if (cur) return reply(`🎙️ *Auto Record* already *🟢 ACTIVE*\n_Use_ *.autorecord off* _to disable_\n\n${sig()}`);
+        config.features.autorecord = true;
+        await react(sock, m, '🎙️');
+        reply(`🎙️ *Auto Record* — ✅ *ON*\n\n${sig()}`);
     }
 },,
 
@@ -823,11 +809,34 @@ module.exports = [
 {
     command: 'update', category: 'other', owner: true,
     execute: async (sock, m, { reply, isCreator }) => {
-        if (!isCreator) return reply(config.message.owner);
+        if (!isCreator) return reply(DENY());
         const updater = require('../library/updater');
         await updater.doUpdate(sock, m, reply);
     }
 },
 
+
+
+
+// ── Universal feature off-toggle (.antidelete off, .chatbot off, etc.) ──────
+{
+    command: 'off', category: 'settings', owner: true,
+    execute: async (sock, m, { text, reply, isCreator, args }) => {
+        if (!isCreator) return reply(DENY());
+        const feat = (args[0] || text || '').toLowerCase().trim();
+        const featMap = {
+            antidelete:'antidelete', anticall:'anticall', chatbot:'chatbot',
+            autoview:'autoviewstatus', autoviewstatus:'autoviewstatus',
+            autoreact:'autoreactstatus', autoreactstatus:'autoreactstatus',
+            alwaysonline:'alwaysonline', autotyping:'autotyping', autorecord:'autorecord',
+        };
+        const key = featMap[feat];
+        if (!key) return reply(`❓ _Usage:_ *.off <feature>*\n_e.g._ *.off chatbot*\n\n${sig()}`);
+        const was = config.features[key];
+        config.features[key] = false;
+        await react(sock, m, '❌');
+        reply(`❌ *${key}* — ${was ? 'turned OFF' : 'was already OFF'}\n\n${sig()}`);
+    }
+},
 
 ];

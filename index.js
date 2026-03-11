@@ -424,6 +424,23 @@ const clientstart = async () => {
         if (cfg().features?.alwaysonline) sock.sendPresenceUpdate('available').catch(()=>{});
     }, 12000);
 
+    // ── Long-term stability: memory cleanup every 6h ─────────────────────
+    setInterval(() => {
+        if (msgs.size > 500) {
+            const keys = [...msgs.keys()].slice(0, msgs.size - 500);
+            keys.forEach(k => msgs.delete(k));
+        }
+        if (global.gc) try { global.gc(); } catch(_) {}
+        console.log('[HEALTH] uptime=' + Math.round(process.uptime()/3600) + 'h mem=' + Math.round(process.memoryUsage().heapUsed/1024/1024) + 'MB');
+    }, 6 * 60 * 60 * 1000);
+
+    // ── Keep-alive ping for hosted platforms (Render/Heroku/Railway) ───────
+    if (process.env.RENDER || process.env.HEROKU_APP_NAME || process.env.RAILWAY_PROJECT_ID) {
+        setInterval(() => {
+            sock.sendPresenceUpdate('available').catch(()=>{});
+        }, 4 * 60 * 1000);
+    }
+
     sock.public = cfg().status?.public ?? true;
 
     sock.downloadMediaMessage = async msg => {
